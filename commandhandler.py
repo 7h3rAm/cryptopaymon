@@ -116,7 +116,7 @@ class commandhandler(object):
 
   def show(self, arguments):
     # show <addr|names|hashtags>
-    matches = []
+    matches, totalbtc, totalusd = [], 0, 0
     query = 'SELECT address, names, hashtags, balance, dotweet, domonitor, status FROM btcaddresses'
     rows = utils.search_db(self.conn, query)
     if rows and len(rows):
@@ -124,14 +124,21 @@ class commandhandler(object):
         address, names, hashtags = row[0], row[1], row[2]
         if arguments == address or arguments.lower() in [x.lower() for x in names.split("|")] or arguments.lower() in [x.lower() for x in hashtags.split("|")]:
           matches.append("a:https://blockchain.info/address/%s, n:%s, t:%s, b:%s, dt:%d, dm:%d, s:%d" % (row[0], row[1], row[2], row[3], row[4], row[5], row[6]))
+          totalbtc += row[3]
+    query = 'SELECT btc2usd from forex'
+    rows = utils.search_db(self.conn, query)
+    if rows and len(rows):
+      totalusd = totalbtc * rows[0][0]
     if len(matches):
+      if len(matches) > 1:
+        matches.append("Total balance (%d addresses): %f BTC (%f USD)" % (len(matches), totalbtc, totalusd))
       return "commandhandler:show:\n%s" % ("\n".join(matches))
     else:
       return "commandhandler:show: couldn't find '%s' in database" % (arguments)
 
   def stats(self, arguments):
     # stats <addr|names|hashtags>
-    matches = []
+    matches, totalbtc, totalusd = [], 0, 0
     query = 'SELECT address, names, hashtags, balance, dotweet, domonitor, status FROM btcaddresses'
     rows = utils.search_db(self.conn, query)
     if rows and len(rows):
@@ -139,7 +146,14 @@ class commandhandler(object):
         address, names, hashtags = row[0], row[1], row[2]
         if arguments == address or arguments.lower() in [x.lower() for x in names.split("|")] or arguments.lower() in [x.lower() for x in hashtags.split("|")]:
           matches.append("a:%s n:%s t:%s b:%s dt:%d dm:%d s:%d" % (row[0], row[1], row[2], row[3], row[4], row[5], row[6]))
+          totalbtc += row[3]
+    query = 'SELECT btc2usd from forex'
+    rows = utils.search_db(self.conn, query)
+    if rows and len(rows):
+      totalusd = totalbtc * rows[0][0]
     if len(matches):
+      if len(matches) > 1:
+        matches.append("Total balance (%d addresses): %f BTC (%f USD)" % (len(matches), totalbtc, totalusd))
       return "commandhandler:stats:\n%s" % ("\n".join(matches))
     else:
       return "commandhandler:stats: couldn't find '%s' in database" % (arguments)
@@ -147,7 +161,7 @@ class commandhandler(object):
   def compare(self, arguments):
     return "commandhandler:compare: not implemented"
 
-  def send_dm(sender, text):
+  def send_dm(self, sender, text):
     self.api.send_direct_message(screen_name=sender, text=text)
 
   def parser(self, message):
