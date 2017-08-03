@@ -20,7 +20,7 @@ class txparser(object):
       "neutralemojis": None,
       "sademojis": None,
       "queuemonitordelay": 0,
-      "satoshi2btc": 100000000,
+      "satoshi2btc": 1e8,
       "exchangerates": {
         "btc2usd": 0
       }
@@ -122,7 +122,7 @@ class txparser(object):
       if details and len(details) and details[0] and len(details[0]):
         names, balance, hashtags, status = details[0][0], details[0][1], details[0][2], details[0][3]
         self.update_balance(address)
-        balance = balance if balance >= 0 else -1
+        balance = balance*self.config["exchangerates"]["btc2usd"] if balance >= 0 else -1
         for tag in self.config["ignorehashtags"].split("|"):
           hashtags = hashtags.replace(tag, "")
         hashtags = hashtags.strip("|")
@@ -141,12 +141,12 @@ class txparser(object):
           emoji = random.choice(self.config["sademojis"].split("|"))
         else:
           emoji = random.choice(self.config["neutralemojis"])
-        tweet.append("%s transferred %.08f BTC ($%.02f USD) (https://blockchain.info/tx/%s) %s%s %s" % (
+        tweet.append("%s sent %f BTC ($%.2f) (https://blockchain.info/tx/%s) %s %s" % (
           sender,
           txinfo["source"][address],
           txinfo["source"][address]*self.config["exchangerates"]["btc2usd"],
           txinfo["txhash"],
-          "(balance: %f BTC) " % balance if balance >= 0 else "",
+          #"(balance: %.02f) " % balance if balance >= 0 else "",
           self.config["generichashtags"],
           emoji))
     for address in txinfo["destination"].keys():
@@ -154,7 +154,7 @@ class txparser(object):
       if details and len(details) and details[0] and len(details[0]):
         names, balance, hashtags, status = details[0][0], details[0][1], details[0][2], details[0][3]
         self.update_balance(address)
-        balance = balance if balance >= 0 else -1
+        balance = balance*self.config["exchangerates"]["btc2usd"] if balance >= 0 else -1
         for tag in self.config["ignorehashtags"].split("|"):
           hashtags = hashtags.replace(tag, "")
         hashtags = hashtags.strip("|")
@@ -173,12 +173,12 @@ class txparser(object):
           emoji = random.choice(self.config["sademojis"].split("|"))
         else:
           emoji = random.choice(self.config["neutralemojis"])
-        tweet.append("%s received %.08f BTC ($%.02f USD) (https://blockchain.info/tx/%s) %s%s %s" % (
+        tweet.append("%s rcvd %f BTC ($%.2f) (https://blockchain.info/tx/%s) %s %s" % (
           receiver,
           txinfo["destination"][address],
           txinfo["destination"][address]*self.config["exchangerates"]["btc2usd"],
           txinfo["txhash"],
-          "(balance: %f BTC) " % balance if balance >= 0 else "",
+          #"(balance: %.02f) " % balance if balance >= 0 else "",
           self.config["generichashtags"],
           emoji))
     if tweet and len(tweet):
