@@ -27,14 +27,14 @@ class tweetout(object):
   def send_dm(self, text):
     user = self.config["twitterusers"].split("|")[0]
     self.api.send_direct_message(screen_name=user, text=text)
-    print("tweetout:send_dm: message size %d > 140 chars, sent dm to %s" % (len(text), user))
 
   def send_tweet(self, message):
-    if len(message) <= 140:
+    try:
       self.api.update_status(message)
       print("tweetout:send_tweet: tweeted message (%dB)" % (len(message)))
-    else:
+    except:
       self.send_dm(message)
+      print("tweetout:send_tweet: exception, sent dm to %s" % (len(text), user))
 
   def load_config(self):
     oldconfig = copy.deepcopy(self.config)
