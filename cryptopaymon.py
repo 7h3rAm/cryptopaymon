@@ -3,6 +3,7 @@
 
 import multiprocessing
 
+import populatetxs
 import addressmonitor
 import statscollector
 import commandhandler
@@ -22,21 +23,24 @@ class cryptopaymon(object):
     self.conn = None
 
   def start(self):
-    # upsert db
     if not self.conn:
       self.conn = utils.create_db(self.config["dbfile"], self.config["schemafile"])
 
     try:
-      sc = multiprocessing.Process(target=statscollector.statscollector(self.conn).run)
-      two = multiprocessing.Process(target=tweetout.tweetout(self.conn).run)
+      pt = multiprocessing.Process(target=populatetxs.populatetxs().run)
 
-      txp = multiprocessing.Process(target=txparser.txparser(self.conn).run)
-      am = multiprocessing.Process(target=addressmonitor.addressmonitor(self.conn).run)
+      txp = multiprocessing.Process(target=txparser.txparser().run)
+      two = multiprocessing.Process(target=tweetout.tweetout().run)
+      ch = multiprocessing.Process(target=commandhandler.commandhandler().run)
 
-      ch = multiprocessing.Process(target=commandhandler.commandhandler(self.conn).run)
-      twi = multiprocessing.Process(target=tweetin.tweetin(self.conn).run)
+      twi = multiprocessing.Process(target=tweetin.tweetin().run)
+      sc = multiprocessing.Process(target=statscollector.statscollector().run)
+      am = multiprocessing.Process(target=addressmonitor.addressmonitor().run)
 
       # these modules are independent of others
+      # update all txs in case we miss any
+      pt.start()
+
       # provide features like tweet replies and statscollection
       sc.start() ; two.start()
 
@@ -46,12 +50,14 @@ class cryptopaymon(object):
       # these modules provide cnc feature
       ch.start() ; twi.start()
 
+      pt.join()
       sc.join() ; two.join()
       txp.join() ; am.join()
       ch.join() ; twi.join()
     except:
-      pass
+      import traceback
+      traceback.print_exc()
 
 if __name__ == "__main__":
-  rm = cryptopaymon()
-  rm.start()
+  cpm = cryptopaymon()
+  cpm.start()

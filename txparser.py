@@ -8,9 +8,9 @@ import copy
 import utils
 
 class txparser(object):
-  def __init__(self, conn):
+  def __init__(self):
     super(txparser, self).__init__()
-    self.conn = conn
+    self.conn = utils.create_db("cryptopaymon.sqlite", "schema.sql")
     self.config = {
       "taskqueue": None,
       "tweetqueue": None,
@@ -23,7 +23,7 @@ class txparser(object):
       "satoshi2btc": 1e8,
       "exchangerates": {
         "btc2usd": 0
-      }
+      },
     }
 
   def update_balance(self, address):
@@ -35,8 +35,8 @@ class txparser(object):
   def parser(self, message):
     # load exchange rates from stats table
     query = 'SELECT btc2usd FROM forex ORDER BY fid DESC LIMIT 1'
-    details = utils.search_db(self.conn, query)
-    self.config["exchangerates"]["btc2usd"] = details[0][0]
+    rows = utils.search_db(self.conn, query)
+    self.config["exchangerates"]["btc2usd"] = rows[0][0]
 
     # dict to store tx information
     txinfo = {
@@ -66,24 +66,24 @@ class txparser(object):
 
     # a tx with sent and rcvd both set has to be ignored, for now
     if txinfo["sent"] == 1 and txinfo["rcvd"] == 1:
-      print("txparser:parser: ignored txhash https://blockchain.info/tx/%s" % (txinfo["txhash"]))
+      utils.info("ignored txhash https://blockchain.info/tx/%s" % (txinfo["txhash"]))
       return
 
     # update btcaddresses table with in|out address information
     alladdresses = utils.all_dict_keys([txinfo["source"], txinfo["destination"]])
     for address in alladdresses:
       query = 'SELECT inaddresses, outaddresses FROM btcaddresses WHERE address="%s"' % (address)
-      details = utils.search_db(self.conn, query)
-      if details and len(details) and details[0] and len(details[0]):
-        if details[0][0]:
-          inaddrs = "|".join(list(set(list(txinfo["source"].keys()) + [details[0][0]])))
+      rows = utils.search_db(self.conn, query)
+      if rows and len(rows) and rows[0] and len(rows[0]):
+        if rows[0][0]:
+          inaddrs = "|".join(list(set(list(txinfo["source"].keys()) + [rows[0][0]])))
         else:
           inaddrs = "|".join(list(set(txinfo["source"].keys())))
-        if details[0][1]:
-          outaddrs = "|".join(list(set(list(txinfo["destination"].keys()) + [details[0][1]])))
+        if rows[0][1]:
+          outaddrs = "|".join(list(set(list(txinfo["destination"].keys()) + [rows[0][1]])))
         else:
           outaddrs = "|".join(list(set(txinfo["destination"].keys())))
-        query = 'UPDATE btcaddresses SET inaddresses="%s", outaddresses="%s" WHERE address="%s"' % (inaddrs, outaddrs, address)
+        query = 'UPDATE btcaddresses SET inaddresses="%s", outaddresses="%s", lasttx_epoch="%s", lasttx_human="%s" WHERE address="%s"' % (inaddrs, outaddrs, txinfo["timestamp_epoch"], txinfo["timestamp_human"], address)
         utils.populate_db(self.conn, query)
 
     # update btctransactions table
@@ -100,7 +100,7 @@ class txparser(object):
         address = addr
         amountbtc = txinfo["destination"][addr]
         break
-    query = 'INSERT INTO btctransactions (txhash, address, timestamp_epoch, timestamp_human, amountbtc, relayip, rcvd, sent, receivers, senders) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")' % (
+    query = 'INSERT INTO btctransactions (txhash, address, timestamp_epoch, timestamp_human, amountbtc, relayip, rcvd, sent, receivers, senders) VALUES ("%s", "%s", %d, "%s", "%s", "%s", "%s", "%s", "%s", "%s")' % (
       txinfo["txhash"],
       address if address else "",
       txinfo["timestamp_epoch"],
@@ -113,14 +113,14 @@ class txparser(object):
       "|".join(senders) if senders and len(senders) else "",
     )
     utils.populate_db(self.conn, query)
-    print("txparser:parser: added transaction details to localdb (sent: %s, rcvd: %s)" % (True if txinfo["sent"] else False, True if txinfo["rcvd"] else False))
+    utils.info("added transaction rows to localdb (sent: %s, rcvd: %s)" % (True if txinfo["sent"] else False, True if txinfo["rcvd"] else False))
 
     # add tweet message to tw queue
     tweet = []
     for address in txinfo["source"].keys():
-      details = utils.search_db(self.conn, 'SELECT names, balance, hashtags, status FROM btcaddresses WHERE address="%s" AND dotweet=1' % (address))
-      if details and len(details) and details[0] and len(details[0]):
-        names, balance, hashtags, status = details[0][0], details[0][1], details[0][2], details[0][3]
+      rows = utils.search_db(self.conn, 'SELECT names, balance, hashtags, status FROM btcaddresses WHERE address="%s" AND dotweet=1' % (address))
+      if rows and len(rows) and rows[0] and len(rows[0]):
+        names, balance, hashtags, status = rows[0][0], rows[0][1], rows[0][2], rows[0][3]
         self.update_balance(address)
         balance = balance*self.config["exchangerates"]["btc2usd"] if balance >= 0 else -1
         for tag in self.config["ignorehashtags"].split("|"):
@@ -150,9 +150,9 @@ class txparser(object):
           self.config["generichashtags"],
           emoji))
     for address in txinfo["destination"].keys():
-      details = utils.search_db(self.conn, 'SELECT names, balance, hashtags, status FROM btcaddresses WHERE address="%s" AND dotweet=1' % (address))
-      if details and len(details) and details[0] and len(details[0]):
-        names, balance, hashtags, status = details[0][0], details[0][1], details[0][2], details[0][3]
+      rows = utils.search_db(self.conn, 'SELECT names, balance, hashtags, status FROM btcaddresses WHERE address="%s" AND dotweet=1' % (address))
+      if rows and len(rows) and rows[0] and len(rows[0]):
+        names, balance, hashtags, status = rows[0][0], rows[0][1], rows[0][2], rows[0][3]
         self.update_balance(address)
         balance = balance*self.config["exchangerates"]["btc2usd"] if balance >= 0 else -1
         for tag in self.config["ignorehashtags"].split("|"):
@@ -185,17 +185,17 @@ class txparser(object):
       tweet = " ".join(tweet)
       tweet = utils.unicodecp_to_unicodestr(tweet)
       utils.enqueue(queuefile=self.config["tweetqueue"], data=tweet)
-      print("txparser:parser: %s" % (tweet))
-      print("txparser:parser: added message to queue: %s (%d total)" % (self.config["tweetqueue"], utils.queuecount(queuefile=self.config["tweetqueue"])))
+      utils.info("%s" % (tweet))
+      utils.info("added message to queue: %s (%d total)" % (self.config["tweetqueue"], utils.queuecount(queuefile=self.config["tweetqueue"])))
 
   def load_config(self):
     oldconfig = copy.deepcopy(self.config)
-    details = utils.search_db(self.conn, 'SELECT taskqueue, tweetqueue, generichashtags, ignorehashtags, happyemojis, neutralemojis, sademojis, queuemonitordelay from config')
+    rows = utils.search_db(self.conn, 'SELECT taskqueue, tweetqueue, generichashtags, ignorehashtags, happyemojis, neutralemojis, sademojis, queuemonitordelay from config')
     try:
-      if details and details[0] and len(details[0]):
-        self.config["taskqueue"], self.config["tweetqueue"], self.config["generichashtags"], self.config["ignorehashtags"], self.config["happyemojis"], self.config["neutralemojis"], self.config["sademojis"], self.config["queuemonitordelay"] = details[0][0], details[0][1], details[0][2], details[0][3], details[0][4], details[0][5], details[0][6], details[0][7]
+      if rows and rows[0] and len(rows[0]):
+        self.config["taskqueue"], self.config["tweetqueue"], self.config["generichashtags"], self.config["ignorehashtags"], self.config["happyemojis"], self.config["neutralemojis"], self.config["sademojis"], self.config["queuemonitordelay"] = rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4], rows[0][5], rows[0][6], rows[0][7]
       else:
-        print("txparser:load_config: could not load config from database, using old config")
+        utils.info("could not load config from database, using old config")
         self.config = copy.deepcopy(oldconfig)
     except:
       self.config = copy.deepcopy(oldconfig)
@@ -205,7 +205,7 @@ class txparser(object):
     self.load_config()
 
     # monitor txp queue
-    print("txparser:run: monitoring queue: %s" % (self.config["taskqueue"]))
+    utils.info("txparser:run: starting txparser module (%s)" % (self.config["taskqueue"]))
     count = utils.queuecount(queuefile=self.config["taskqueue"])
     while True:
       count = utils.queuecount(queuefile=self.config["taskqueue"])
@@ -216,3 +216,7 @@ class txparser(object):
 
       # reload config from database
       self.load_config()
+
+
+if __name__ == "__main__":
+  txparser().run()

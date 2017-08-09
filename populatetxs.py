@@ -8,6 +8,9 @@ import re
 
 import utils
 
+import urllib3
+urllib3.disable_warnings()
+
 class populatetxs():
   def __init__(self):
     super(populatetxs, self).__init__()
@@ -19,10 +22,10 @@ class populatetxs():
 
   def load_config(self):
     oldconfig = copy.deepcopy(self.config)
-    details = utils.search_db(self.conn, 'SELECT txupdatedelay FROM config')
+    rows = utils.search_db(self.conn, 'SELECT txupdatedelay FROM config')
     try:
-      if details and details[0] and len(details[0]):
-        self.config["txupdatedelay"] = details[0][0]
+      if rows and rows[0] and len(rows[0]):
+        self.config["txupdatedelay"] = rows[0][0]
       else:
         utils.info("populatetxs:load_config: could not load config from database")
         self.config = copy.deepcopy(oldconfig)
@@ -63,16 +66,21 @@ class populatetxs():
   def update_database(self, rows):
     for row in rows:
       # get blockchain.info tags for current address
-      #https://blockchain.info/tags?address-filter=1C3NNQ6Y7Qa7Q3mBSUqMT3v7tnADwh5aio&filter=2
       tags = self.get_tags(row[0])
 
       # get list of all txs for current address
       txs = self.get_txs(row[0])
       if txs:
         if tags and len(tags):
-          query = 'UPDATE btcaddresses SET tags="%s", txs=%d, rcvd=%d, sent=%d, balance=%d WHERE address="%s"' % ("|".join(tags), txs["n_tx"], txs["total_received"], txs["total_sent"], txs["final_balance"], row[0])
+          rcvd = txs["total_received"]/self.config["satoshi2btc"]
+          sent = txs["total_sent"]/self.config["satoshi2btc"]
+          balance = txs["final_balance"]/self.config["satoshi2btc"]
+          query = 'UPDATE btcaddresses SET tags="%s", txs=%d, rcvd=%f, sent=%f, balance=%f WHERE address="%s"' % ("|".join(tags), txs["n_tx"], rcvd, sent, balance, row[0])
         else:
-          query = 'UPDATE btcaddresses SET txs=%d, rcvd=%d, sent=%d, balance=%d WHERE address="%s"' % (txs["n_tx"], txs["total_received"], txs["total_sent"], txs["final_balance"], row[0])
+          rcvd = txs["total_received"]/self.config["satoshi2btc"]
+          sent = txs["total_sent"]/self.config["satoshi2btc"]
+          balance = txs["final_balance"]/self.config["satoshi2btc"]
+          query = 'UPDATE btcaddresses SET txs=%d, rcvd=%f, sent=%f, balance=%f WHERE address="%s"' % (txs["n_tx"], rcvd, sent, balance, row[0])
         utils.populate_db(self.conn, query)
         txcount = 0
         for tx in txs["txs"]:
@@ -114,17 +122,19 @@ class populatetxs():
           alladdresses = utils.all_dict_keys([txinfo["source"], txinfo["destination"]])
           for address in alladdresses:
             query = 'SELECT inaddresses, outaddresses FROM btcaddresses WHERE address="%s"' % (address)
-            details = utils.search_db(self.conn, query)
-            if details and len(details) and details[0] and len(details[0]):
-              if details[0][0]:
-                inaddrs = "|".join(list(set(list(txinfo["source"].keys()) + [details[0][0]])))
+            rows = utils.search_db(self.conn, query)
+            if rows and len(rows) and rows[0] and len(rows[0]):
+              if rows[0][0]:
+                inaddrs = "|".join(list(set(list(txinfo["source"].keys()) + [rows[0][0]])))
               else:
                 inaddrs = "|".join(list(set(txinfo["source"].keys())))
-              if details[0][1]:
-                outaddrs = "|".join(list(set(list(txinfo["destination"].keys()) + [details[0][1]])))
+              if rows[0][1]:
+                outaddrs = "|".join(list(set(list(txinfo["destination"].keys()) + [rows[0][1]])))
               else:
                 outaddrs = "|".join(list(set(txinfo["destination"].keys())))
-              query = 'UPDATE btcaddresses SET inaddresses="%s", outaddresses="%s" WHERE address="%s"' % (inaddrs, outaddrs, address)
+                pprint(txinfo)
+                query = 'UPDATE btcaddresses SET inaddresses="%s", outaddresses="%s", lasttx_epoch="%s", lasttx_human="%s" WHERE address="%s"' % (inaddrs, outaddrs, txinfo["timestamp_epoch"], txinfo["timestamp_human"], address)
+                print(1, query, 1)
               utils.populate_db(self.conn, query)
 
           # update btctransactions table

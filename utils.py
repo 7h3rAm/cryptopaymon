@@ -5,7 +5,10 @@ import pika
 
 from pprint import pprint
 import functools
+import datetime
+import errno
 import time
+import sys
 import re
 import os
 
@@ -136,6 +139,8 @@ def search_db(conn, query):
       cursor = conn.cursor()
       cursor.execute(query)
       return cursor.fetchall()
+  except sqlite3.OperationalError:
+    return None
   except:
     return None
 
@@ -174,10 +179,10 @@ def get_exchange_rates():
     return None
 
 def epoch_to_human_localtime(epoch):
-  return time.strftime("%d/%b/%Y %H:%M:%S (%Z)", time.localtime(epoch))
+  return time.strftime("%d/%b/%Y %H:%M:%S %Z", time.localtime(epoch))
 
 def epoch_to_human_utc(epoch):
-  return time.strftime("%d/%b/%Y %H:%M:%S (UTC)", time.gmtime(epoch))
+  return time.strftime("%d/%b/%Y %H:%M:%S UTC", time.gmtime(epoch))
 
 def all_dict_keys(listofdicts):
   return functools.reduce(set.union, map(set, map(dict.keys, listofdicts)))
@@ -188,6 +193,52 @@ def list_common(lista, listb):
 def list_uncommon(lista, listb):
   return list(set(lista) ^ set(listb))
 
+def remove_file(filename):
+  # https://stackoverflow.com/a/10840586/1079836
+  try:
+    os.remove(filename)
+  except OSError as e: # this would be "except OSError, e:" before Python 2.6
+    if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+      raise # re-raise exception if a different error occurred
+
 def unicodecp_to_unicodestr(str):
   # https://stackoverflow.com/a/41597732/1079836
   return re.sub(r'U\+([0-9a-fA-F]+)', lambda m: chr(int(m.group(1),16)), str)
+
+def current_datetime_utc_string():
+  return datetime.datetime.utcnow().strftime("%H:%M:%S %d/%b/%Y")
+
+def current_datetime_string():
+  return "%s %s" % (datetime.datetime.now().strftime("%H:%M:%S %d/%b/%Y"), time.tzname[0])
+
+def exit(retcode=0):
+  sys.exit(retcode)
+
+# print message with debug level and function/module name
+def doprint(msg, level="INFO", back=0):
+  frame = sys._getframe(back + 1)
+  filename = os.path.basename(frame.f_code.co_filename).replace(".py", "")
+  funcname = frame.f_code.co_name
+  lineno = frame.f_lineno
+  print("%s [%s.%s.%d] %s: %s" % (current_datetime_string(), filename, funcname, lineno, level, msg))
+
+# print info messages
+def info(msg):
+  pretext = "INFO"
+  doprint(msg, pretext, back=1)
+
+# print debug messages
+def debug(msg):
+  pretext = "DEBUG"
+  doprint(msg, pretext, back=1)
+
+# print warning messages
+def warn(msg):
+  pretext = "WARN"
+  doprint(msg, pretext, back=1)
+
+# print error messages
+def error(msg):
+  pretext = "ERROR"
+  doprint(msg, pretext, back=1)
+  exit(1)

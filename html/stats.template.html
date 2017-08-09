@@ -1,0 +1,76 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link href="roboto.css" rel="stylesheet" type="text/css" media="screen">
+    <link href="bootstrap.min.css" rel="stylesheet" type="text/css" media="screen">
+    <link href="bootstrap-theme.min.css" rel="stylesheet" type="text/css" media="screen">
+    <script src="html2canvas.min.js"></script>
+    <script src="jquery-3.2.1.min.js"></script>
+    <script src="bootstrap.min.js"></script>
+    <style type="text/css">
+      .incontainer {
+        background: #fff;
+        font: 15px/21px "Roboto",sans-serif;
+        padding: 20px 40px 10px;
+        border: medium solid #777;
+        margin: 50px auto;
+      }
+      .outcontainer {
+        font: 15px/21px "Roboto",sans-serif;
+        padding: 20px 40px 10px;
+        margin: 50px auto;
+      }
+
+    </style>
+    <script language="javascript">
+    $(document).ready(function() {
+      var tabdiv = document.getElementById("tweettable");
+      tabdiv.style.display = "block";
+      var h = tabdiv.offsetHeight;
+      var w = tabdiv.offsetWidth;
+      w = Math.max(Math.min((h * w) / Math.sqrt(h * w / 2), 1200), 506);
+      tabdiv.style.width = w + "px";
+      html2canvas(tabdiv, {onrendered: function(canvas) {
+        var imageb64 = canvas.toDataURL("image/png").replace(/(\r\n|\n|\r)/gm, "");
+        document.getElementById("content").src = imageb64;
+        document.getElementById("imagehandle").href = imageb64;
+        document.getElementById("imagehandle").click()
+      }});
+    });
+    </script>
+  </head>
+  <body>
+    <div id="tweettable" class="incontainer">
+      <p class="lead text-center">{{heading}}</p>
+      <table class="table table-striped table-condensed">
+        <tr class="text-justify"><td>#</td><td>Wallet (# addresses)</td><td>Transactions</td><td>Received</td><td>Sent</td><td>Balance</td><td>Last TX</td></tr>
+        {%for entry in entries%}
+          {%if reporttype=="good"%}
+            {%if entry.addresses > 1 %}
+              <tr class="text-justify text-primary"><td>{{loop.index}}.</td><td>{{entry.wallet}} ({{entry.addresses}})</td><td>{{entry.txs}}</td><td>{{entry.rcvd}}</td><td>{{entry.sent}}</td><td>${{entry.balanceusd}}</td><td>{{entry.lasttx_human}}</td></tr>
+            {%else%}
+              <tr class="text-justify text-primary"><td>{{loop.index}}.</td><td>{{entry.wallet}}</td><td>{{entry.txs}}</td><td>{{entry.rcvd}}</td><td>{{entry.sent}}</td><td>${{entry.balanceusd}}</td><td>{{entry.lasttx_human}}</td></tr>
+            {%endif%}
+          {%elif reporttype=="bad"%}
+            {%if entry.addresses > 1 %}
+              <tr class="text-justify text-danger"><td>{{loop.index}}.</td><td>{{entry.wallet}} ({{entry.addresses}})</td><td>{{entry.txs}}</td><td>{{entry.rcvd}}</td><td>{{entry.sent}}</td><td>${{entry.balanceusd}}</td><td>{{entry.lasttx_human}}</td></tr>
+            {%else%}
+              <tr class="text-justify text-danger"><td>{{loop.index}}.</td><td>{{entry.wallet}}</td><td>{{entry.txs}}</td><td>{{entry.rcvd}}</td><td>{{entry.sent}}</td><td>${{entry.balanceusd}}</td><td>{{entry.lasttx_human}}</td></tr>
+            {%endif%}
+          {%elif reporttype=="unknown"%}
+            {%if entry.addresses > 1 %}
+              <tr class="text-justify text-warning"><td>{{loop.index}}.</td><td>{{entry.wallet}} ({{entry.addresses}})</td><td>{{entry.txs}}</td><td>{{entry.rcvd}}</td><td>{{entry.sent}}</td><td>${{entry.balanceusd}}</td><td>{{entry.lasttx_human}}</td></tr>
+            {%else%}
+              <tr class="text-justify text-warning"><td>{{loop.index}}.</td><td>{{entry.wallet}}</td><td>{{entry.txs}}</td><td>{{entry.rcvd}}</td><td>{{entry.sent}}</td><td>${{entry.balanceusd}}</td><td>{{entry.lasttx_human}}</td></tr>
+            {%endif%}
+          {%endif%}
+        {%endfor%}
+      </table>
+      <a href="https://twitter.com/cryptopaymon/" target="_blank"><p class="text-muted text-center"><strong>@cryptopaymon</strong><br/></a><p class="text-muted text-center">{{timestamp}}</p>
+    </div>
+    <div id="tablehandle" class="outcontainer"><center><img id="content" name="content"></center></div>
+    <a id="imagehandle" download="stats.png" target="_blank"></a>
+    </div>
+  </body>
+</html>

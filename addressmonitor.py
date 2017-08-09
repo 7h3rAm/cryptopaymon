@@ -10,9 +10,9 @@ import json
 import utils
 
 class addressmonitor(object):
-  def __init__(self, conn):
+  def __init__(self):
     super(addressmonitor, self).__init__()
-    self.conn = conn
+    self.conn = utils.create_db("cryptopaymon.sqlite", "schema.sql")
     self.config = {
       "taskqueue": None
     }
@@ -32,7 +32,7 @@ class addressmonitor(object):
     }
 
   def on_open(self, ws):
-    print("addressmonitor:on_open: sending keepalive")
+    utils.info("addressmonitor:on_open: sending keepalive")
     ws.send(self.ops["keepalive"])
     self.subscribe()
 
@@ -40,22 +40,22 @@ class addressmonitor(object):
     msgdict = json.loads(message)
     if msgdict["op"] == "utx" and "x" in msgdict:
       utils.enqueue(queuefile=self.config["taskqueue"], data=msgdict)
-      print("addressmonitor:on_message: added message (%dB) to queue: %s (%d total)" % (len(message), self.config["taskqueue"], utils.queuecount(queuefile=self.config["taskqueue"])))
+      utils.info("added message (%dB) to queue: %s (%d total)" % (len(message), self.config["taskqueue"], utils.queuecount(queuefile=self.config["taskqueue"])))
     # hack to ensure database changes are tracked without restarting module
     self.subscribe()
 
   def on_error(self, ws, error):
-    print("addressmonitor:on_error: %s" % (error))
+    utils.info("%s" % (error))
 
   def on_close(self, ws):
-    print("addressmonitor:on_close: %s" % (ws.url))
+    utils.info("%s" % (ws.url))
 
   def subscribe(self):
     # get address, names from btcaddresses table
-    details = utils.search_db(self.conn, 'SELECT address, domonitor FROM btcaddresses')
-    if details and len(details):
+    rows = utils.search_db(self.conn, 'SELECT address, domonitor FROM btcaddresses')
+    if rows and len(rows):
       subcount, unsubcount, self.addresses = 0, 0, []
-      for entry in details:
+      for entry in rows:
         # entry[1] is domonitor flag, if 0 unsubscribe, else subscribe
         if entry[1] == 0:
           self.ws.send(self.ops["unsubscribeaddr"].replace("ADDRESS", entry[0]))
@@ -65,7 +65,7 @@ class addressmonitor(object):
             self.addresses.append(entry[0])
           self.ws.send(self.ops["subscribeaddr"].replace("ADDRESS", entry[0]))
           subcount += 1
-      print("addressmonitor:subscribe: subscribed: %d | unsubscribed: %d" % (subcount, unsubcount))
+      utils.info("subscribed: %d | unsubscribed: %d" % (subcount, unsubcount))
 
   def enable_webscoket(self):
     websocket.enableTrace(False)
@@ -79,12 +79,12 @@ class addressmonitor(object):
 
   def load_config(self):
     oldconfig = copy.deepcopy(self.config)
-    details = utils.search_db(self.conn, 'SELECT taskqueue FROM config')
+    rows = utils.search_db(self.conn, 'SELECT taskqueue FROM config')
     try:
-      if details and details[0] and len(details[0]):
-        self.config["taskqueue"] = details[0][0]
+      if rows and rows[0] and len(rows[0]):
+        self.config["taskqueue"] = rows[0][0]
       else:
-        print("addressmonitor:load_config: could not load config from database")
+        utils.info("could not load config from database")
         self.config = copy.deepcopy(oldconfig)
     except:
       self.config = copy.deepcopy(oldconfig)
@@ -95,6 +95,11 @@ class addressmonitor(object):
 
     try:
       # enable websocket and start monitoring
+      utils.info("starting addressmonitor module")
       self.enable_webscoket()
     except:
       pass
+
+
+if __name__ == "__main__":
+  addressmonitor().run()

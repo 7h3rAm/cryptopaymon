@@ -9,17 +9,19 @@ import time
 import utils
 
 class tweetout(object):
-  def __init__(self, conn):
+  def __init__(self):
     super(tweetout, self).__init__()
-    self.conn = conn
+    self.conn = utils.create_db("cryptopaymon.sqlite", "schema.sql")
     self.config = {
       "twitterusers": None,
       "tweetqueue": None,
-      "queuemonitordelay": None,
+      "tweetmediaqueue": None,
+      "tweetdelay": None,
       "twitterconsumerkey": None,
       "twitterconsumersecret": None,
       "twitteraccesskey": None,
-      "twitteraccesssecret": None
+      "twitteraccesssecret": None,
+      "tmpfile": "/tmp/.imgfile.png",
     }
     self.auth = None
     self.api = None
@@ -28,30 +30,54 @@ class tweetout(object):
     user = self.config["twitterusers"].split("|")[0]
     self.api.send_direct_message(screen_name=user, text=text)
 
+  def send_tweet_media(self, imgdata):
+    try:
+      with open(self.config["tmpfile"], "wb") as tmpfo:
+        tmpfo.write(imgdata)
+      self.api.update_with_media(self.config["tmpfile"])
+      utils.info("tweeted media (%s)" % (self.config["tmpfile"]))
+      utils.remove_file(self.config["tmpfile"])
+    except tweepy.error.TweepError as ex:
+      utils.warn(ex["message"])
+      utils.enqueue(queuefile=self.config["tweetmediaqueue"], data=imgdata)
+      time.sleep(self.config["tweetdelay"])
+    except:
+      import traceback
+      traceback.print_exc()
+      self.send_dm("exception while sending media tweet: %dB" % (len(imgdata)))
+      utils.warn("exception, sent dm to %s" % (self.config["twitterusers"].split("|")[0]))
+      utils.remove_file(self.config["tmpfile"])
+
   def send_tweet(self, message):
     try:
       self.api.update_status(message)
-      print("tweetout:send_tweet: tweeted message (%dB)" % (len(message)))
+      utils.info("tweeted message (%dB)" % (len(message)))
+    except tweepy.error.TweepError as ex:
+      utils.warn(ex["message"])
+      utils.enqueue(queuefile=self.config["tweetqueue"], data=message)
+      time.sleep(self.config["tweetdelay"])
     except:
-      self.send_dm(message)
-      print("tweetout:send_tweet: exception, sent dm to %s" % (len(text), user))
+      self.send_dm("exception while sending tweet: %s" % (message))
+      utils.warn("exception, sent dm to %s" % (self.config["twitterusers"].split("|")[0]))
 
   def load_config(self):
     oldconfig = copy.deepcopy(self.config)
-    details = utils.search_db(self.conn, 'SELECT authorizedusers, tweetqueue, queuemonitordelay from config')
+    rows = utils.search_db(self.conn, 'SELECT authorizedusers, tweetqueue, tweetmediaqueue, tweetdelay from config')
     try:
-      if details and details[0] and len(details[0]):
-        self.config["twitterusers"], self.config["tweetqueue"], self.config["queuemonitordelay"] = details[0][0], details[0][1], details[0][2]
+      if rows and rows[0] and len(rows[0]):
+        self.config["twitterusers"], self.config["tweetqueue"], self.config["tweetmediaqueue"], self.config["tweetdelay"] = rows[0][0], rows[0][1], rows[0][2], rows[0][3]
       else:
-        print("tweetin:load_config: could not load config from database, using old config")
+        utils.info("could not load config from database, using old config")
         self.config = copy.deepcopy(oldconfig)
     except:
+      import traceback
+      traceback.print_exc()
       self.config = copy.deepcopy(oldconfig)
 
   def load_apikeys(self):
-    details = utils.search_db(self.conn, 'SELECT twitterconsumerkey, twitterconsumersecret, twitteraccesskey, twitteraccesssecret from apikeys')
-    if details and details[0] and len(details[0]):
-      self.config["twitterconsumerkey"], self.config["twitterconsumersecret"], self.config["twitteraccesskey"], self.config["twitteraccesssecret"] = details[0][0], details[0][1], details[0][2], details[0][3]
+    rows = utils.search_db(self.conn, 'SELECT twitterconsumerkey, twitterconsumersecret, twitteraccesskey, twitteraccesssecret from apikeys')
+    if rows and rows[0] and len(rows[0]):
+      self.config["twitterconsumerkey"], self.config["twitterconsumersecret"], self.config["twitteraccesskey"], self.config["twitteraccesssecret"] = rows[0][0], rows[0][1], rows[0][2], rows[0][3]
 
   def run(self):
     # load config from database
@@ -66,17 +92,26 @@ class tweetout(object):
     self.api = tweepy.API(self.auth)
 
     # monitor tw queue
-    print("tweetout:run: monitoring queue: %s" % (self.config["tweetqueue"]))
+    utils.info("starting tweetout module (%s, %s)" % (self.config["tweetqueue"], self.config["tweetmediaqueue"]))
     try:
       while True:
         count = utils.queuecount(queuefile=self.config["tweetqueue"])
         if count > 0:
           message = utils.dequeue(queuefile=self.config["tweetqueue"])
           self.send_tweet(message)
-        time.sleep(self.config["queuemonitordelay"])
+        count = utils.queuecount(queuefile=self.config["tweetmediaqueue"])
+        if count > 0:
+          imgdata = utils.dequeue(queuefile=self.config["tweetmediaqueue"])
+          self.send_tweet_media(imgdata)
+        time.sleep(self.config["tweetdelay"])
 
         # reload config from database
         self.load_config()
     except:
       import traceback
       traceback.print_exc()
+      pass
+
+
+if __name__ == "__main__":
+  tweetout().run()

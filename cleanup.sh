@@ -1,4 +1,4 @@
-rm -rf /run/shm/tasks
-rm -rf /run/shm/tweets
-rm -rf /run/shm/cmd
-rm -rf cryptopaymon.sqlite
+rm -rf /run/shm/cmd.sqlite
+rm -rf /run/shm/tasks.sqlite
+rm -rf /run/shm/tweets.sqlite
+rm -rf /run/shm/tweetmedia.sqlite
