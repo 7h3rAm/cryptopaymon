@@ -99,12 +99,16 @@ class statscollector():
       # render html as an image and save to disk
       webbrowser.open_new("%s/%s" % (self.config["htmldir"], filename))
       time.sleep(self.config["imagesavedelay"])
-      # copy file to namedtemp file, add file to tweetmedia queue, delete downloaded file
-      with open("%s/stats.png" % (self.config["downloaddir"]), "rb") as fo:
-        imgdata = fo.read()
-      utils.enqueue(queuefile=self.config["tweetmediaqueue"], data=imgdata)
+      # read image data, add to tweetmedia queue, delete image file
+      try:
+        with open("%s/stats.png" % (self.config["downloaddir"]), "rb") as fo:
+          imgdata = fo.read()
+        utils.enqueue(queuefile=self.config["tweetmediaqueue"], data=imgdata)
+        utils.info("added image data to queue")
+      except:
+        import traceback
+        traceback.print_exc()
       utils.remove_file("%s/stats.png" % (self.config["downloaddir"]))
-      utils.info("added image data to queue")
 
     timestamp = "%s UTC" % (utils.current_datetime_utc_string())
     rows = utils.search_db(self.conn, 'SELECT names FROM btcaddresses WHERE dostats=1 AND status=1')
@@ -139,13 +143,13 @@ class statscollector():
       utils.populate_db(self.conn, deletequery)
       utils.info("updated forex rates")
       # update btc address balance
-      #rows = utils.search_db(self.conn, 'SELECT address FROM btcaddresses')
-      #if rows and len(rows):
-      #  count = 0
-      #  for entry in rows:
-      #    if self.update_balance(entry[0]):
-      #      count += 1
-      #  utils.info("updated balance for %d tracked addresses" % (count))
+      rows = utils.search_db(self.conn, 'SELECT address FROM btcaddresses')
+      if rows and len(rows):
+        count = 0
+        for entry in rows:
+          if self.update_balance(entry[0]):
+            count += 1
+        utils.info("updated balance for %d tracked addresses" % (count))
 
       # load exchange rates from stats table
       query = 'SELECT btc2usd FROM forex ORDER BY fid DESC LIMIT 1'
@@ -155,10 +159,10 @@ class statscollector():
       # summary of all addresses
       summary = self.address_summary()
 
-      # lowest|highest balance for ransom/donation recepients
+      # lowest|highest balance for ransom/donation recipients
       # most common sender/receiver
       # most common sender/receiver for ransom/donation
-      # lowest|highest paying sender/receiver
+      # lowest|highest paying|receiving sender/receiver
       # highest balance/txs/rcvd/sent
 
       ## sleep

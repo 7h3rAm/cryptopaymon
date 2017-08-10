@@ -39,7 +39,7 @@ class tweetout(object):
       utils.info("tweeted media (%s)" % (self.config["tmpfile"]))
       utils.remove_file(self.config["tmpfile"])
     except tweepy.error.TweepError as ex:
-      utils.warn(ex["message"])
+      utils.warn(ex)
       utils.enqueue(queuefile=self.config["tweetmediaqueue"], data=imgdata)
       time.sleep(self.config["tweetdelay"])
     except:
@@ -54,10 +54,12 @@ class tweetout(object):
       self.api.update_status(message)
       utils.info("tweeted message (%dB)" % (len(message)))
     except tweepy.error.TweepError as ex:
-      utils.warn(ex["message"])
+      utils.warn(ex)
       utils.enqueue(queuefile=self.config["tweetqueue"], data=message)
       time.sleep(self.config["tweetdelay"])
     except:
+      import traceback
+      traceback.print_exc()
       self.send_dm("exception while sending tweet: %s" % (message))
       utils.warn("exception, sent dm to %s" % (self.config["twitterusers"].split("|")[0]))
 
