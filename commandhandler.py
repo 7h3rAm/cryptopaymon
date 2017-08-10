@@ -29,6 +29,9 @@ class commandhandler(object):
         "good": 1,
         "bad": 2
       },
+      "exchangerates": {
+        "btc2usd": 0
+      },
     }
     self.commands = {
       "add": {
@@ -316,7 +319,48 @@ class commandhandler(object):
     show address|name1|hashtag2
     will loop over all addresses and generate combined stats for those that match params
     """
-    return None
+    if self.is_root(sender) or self.is_authorized(sender):
+      try:
+        # load exchange rates from stats table
+        rows = utils.search_db(self.conn, 'SELECT btc2usd FROM forex ORDER BY fid DESC LIMIT 1')
+        self.config["exchangerates"]["btc2usd"] = rows[0][0]
+        result, summary, mtcount, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human = list(), list(), 0, 0, 0, 0, 0, 0, None
+        rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses')
+        for row in rows:
+          if arguments == row[0] or arguments.lower() in row[1].lower() or arguments.lower() in row[2].lower():
+            summary.append("Address: %s" % (row[0]))
+            summary.append("Names: %s" % (row[1]))
+            summary.append("Hashtags: %s" % (row[2]))
+            summary.append("Transactions: %s" % (row[3]))
+            summary.append("Received: %.2f (%.2f USD)" % (row[4], row[4]*self.config["exchangerates"]["btc2usd"]))
+            summary.append("Sent: %.2f (%.2f USD)" % (row[5], row[5]*self.config["exchangerates"]["btc2usd"]))
+            summary.append("Balance: %.2f (%.2f USD)" % (row[6], row[6]*self.config["exchangerates"]["btc2usd"]))
+            summary.append("Last TX: %s" % (row[8]))
+            # count all txs (value should be >= 0, -1 is used as default while populating database initially)
+            if row[3] >= 0:
+              mtcount += 1
+            # use only those addresses that have atleast 1 or more txs
+            if row[3] > 0:
+              txs += row[3]
+              rcvd += row[4]
+              sent += row[5]
+              balance += row[6]
+            summary.append("---")
+        summary.append("\n")
+        summary.append("Matches: %d" % (mtcount))
+        summary.append("Transactions: %d" % (txs))
+        summary.append("Received: %.2f (%.2f USD)" % (rcvd, rcvd*self.config["exchangerates"]["btc2usd"]))
+        summary.append("Sent: %.2f (%.2f USD)" % (sent, sent*self.config["exchangerates"]["btc2usd"]))
+        summary.append("Balance: %.2f (%.2f USD)" % (balance, balance*self.config["exchangerates"]["btc2usd"]))
+        return "\n".join(summary)
+      except:
+        import traceback
+        traceback.print_exc()
+        self.error = "incorrect params for this command: show %s" % (arguments)
+        return None
+    else:
+      self.error = "user %s is not authorized" % (sender)
+      return None
 
   def send_dm(self, sender, text):
     self.api.send_direct_message(screen_name=sender, text=text)
