@@ -14,3 +14,6 @@ __pycache__
 cryptopaymon.sqlite
 schema.sql
 TODO
+html/stats-donation.html
+html/stats-ransom.html
+

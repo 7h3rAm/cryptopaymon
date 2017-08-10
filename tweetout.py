@@ -21,6 +21,7 @@ class tweetout(object):
       "twitterconsumersecret": None,
       "twitteraccesskey": None,
       "twitteraccesssecret": None,
+      "generichashtags": None,
       "tmpfile": "/tmp/.imgfile.png",
     }
     self.auth = None
@@ -34,7 +35,7 @@ class tweetout(object):
     try:
       with open(self.config["tmpfile"], "wb") as tmpfo:
         tmpfo.write(imgdata)
-      self.api.update_with_media(self.config["tmpfile"])
+      self.api.update_with_media(self.config["tmpfile"], status=self.config["generichashtags"])
       utils.info("tweeted media (%s)" % (self.config["tmpfile"]))
       utils.remove_file(self.config["tmpfile"])
     except tweepy.error.TweepError as ex:
@@ -62,10 +63,10 @@ class tweetout(object):
 
   def load_config(self):
     oldconfig = copy.deepcopy(self.config)
-    rows = utils.search_db(self.conn, 'SELECT authorizedusers, tweetqueue, tweetmediaqueue, tweetdelay from config')
+    rows = utils.search_db(self.conn, 'SELECT authorizedusers, tweetqueue, tweetmediaqueue, generichashtags, tweetdelay from config')
     try:
       if rows and rows[0] and len(rows[0]):
-        self.config["twitterusers"], self.config["tweetqueue"], self.config["tweetmediaqueue"], self.config["tweetdelay"] = rows[0][0], rows[0][1], rows[0][2], rows[0][3]
+        self.config["twitterusers"], self.config["tweetqueue"], self.config["tweetmediaqueue"], self.config["generichashtags"], self.config["tweetdelay"] = rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4]
       else:
         utils.info("could not load config from database, using old config")
         self.config = copy.deepcopy(oldconfig)
