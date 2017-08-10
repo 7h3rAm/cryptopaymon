@@ -324,7 +324,7 @@ class commandhandler(object):
         # load exchange rates from stats table
         rows = utils.search_db(self.conn, 'SELECT btc2usd FROM forex ORDER BY fid DESC LIMIT 1')
         self.config["exchangerates"]["btc2usd"] = rows[0][0]
-        result, summary, mtcount, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human = list(), list(), 0, 0, 0, 0, 0, 0, None
+        result, summary, allcount, mtcount, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human = list(), list(), 0, 0, 0, 0, 0, 0, 0, None
         rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses')
         for row in rows:
           if arguments == row[0] or arguments.lower() in row[1].lower() or arguments.lower() in row[2].lower():
@@ -336,6 +336,7 @@ class commandhandler(object):
             summary.append("Sent: %.2f (%.2f USD)" % (row[5], row[5]*self.config["exchangerates"]["btc2usd"]))
             summary.append("Balance: %.2f (%.2f USD)" % (row[6], row[6]*self.config["exchangerates"]["btc2usd"]))
             summary.append("Last TX: %s" % (row[8]))
+            allcount += 1
             # count all txs (value should be >= 0, -1 is used as default while populating database initially)
             if row[3] >= 0:
               mtcount += 1
@@ -352,7 +353,14 @@ class commandhandler(object):
         summary.append("Received: %.2f (%.2f USD)" % (rcvd, rcvd*self.config["exchangerates"]["btc2usd"]))
         summary.append("Sent: %.2f (%.2f USD)" % (sent, sent*self.config["exchangerates"]["btc2usd"]))
         summary.append("Balance: %.2f (%.2f USD)" % (balance, balance*self.config["exchangerates"]["btc2usd"]))
-        return "\n".join(summary)
+        if mtcount > 0:
+          return "\n".join(summary)
+        elif allcount > 0:
+          self.error = "could not find any txs for pattern: %s" % (arguments)
+          return None
+        else:
+          self.error = "could not find any rows matching pattern: %s" % (arguments)
+          return None
       except:
         import traceback
         traceback.print_exc()
