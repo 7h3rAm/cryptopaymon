@@ -29,7 +29,8 @@ class tweetout(object):
 
   def send_dm(self, text):
     user = self.config["twitterusers"].split("|")[0]
-    self.api.send_direct_message(screen_name=user, text=text)
+    for chunk in utils.split_twitter_text(text=text, maxchars=1000):
+      self.api.send_direct_message(screen_name=user, text=chunk)
 
   def send_tweet_media(self, imgdata):
     try:
@@ -51,7 +52,8 @@ class tweetout(object):
 
   def send_tweet(self, message):
     try:
-      self.api.update_status(message)
+      for chunk in utils.split_twitter_text(text=message, maxchars=1000):
+        self.api.update_status(chunk)
       utils.info("tweeted message (%dB)" % (len(message)))
     except tweepy.error.TweepError as ex:
       utils.warn(ex)

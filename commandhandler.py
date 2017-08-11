@@ -35,28 +35,64 @@ class commandhandler(object):
     }
     self.commands = {
       "add": {
+        "user": "root",
+        "usage": "add address name1|name2 #hashtag1|#hashtag2 good|bad|unknown",
+        "help": "will add new entry and enable tracking|tweeting|txstats by default",
         "handler": self.add,
       },
       "remove": {
+        "user": "root",
+        "usage": "remove address|name1|hashtag2",
+        "help": "will loop over all addresses and remove those that match params",
         "handler": self.remove,
       },
       "txtrack": {
+        "user": "root",
+        "usage": "txtrack start|stop address|name1|hashtag2",
+        "help": "will loop over all addresses and enable|disable tracking live txs for those that match params",
         "handler": self.txtrack,
       },
       "txtweet": {
+        "user": "root",
+        "usage": "txtweet start|stop address|name1|hashtag2",
+        "help": "will loop over all addresses and enable|disable tweeting live txs for those that match params",
         "handler": self.txtweet,
       },
+      "txstats": {
+        "user": "root",
+        "usage": "txstats start|stop address|name1|hashtag2",
+        "help": "will loop over all addresses and enable|disable stats tweet for those that match params",
+        "handler": self.txstats,
+      },
       "auth": {
+        "user": "root",
+        "usage": "auth add|remove handle",
+        "help": "will add|remove handle in authorized users list",
         "handler": self.auth,
       },
       "update": {
+        "user": "root",
+        "usage": "update address|name1|hashtag2 good|bad|unknown",
+        "help": "will loop over all addresses and update status for those that match params",
         "handler": self.update,
       },
-      "txstats": {
-        "handler": self.txstats,
+      "show": {
+        "user": "root, auth",
+        "usage": "show address|name1|hashtag2",
+        "help": "will loop over all addresses and generate combined stats for those that match params",
+        "handler": self.show,
       },
       "show": {
+        "user": "root, auth",
+        "usage": "show address|name1|hashtag2",
+        "help": "will loop over all addresses and generate combined stats for those that match params",
         "handler": self.show,
+      },
+      "help": {
+        "user": "root, auth",
+        "usage": "help",
+        "help": "will show help for available commands",
+        "handler": self.help,
       },
     }
     self.error = None
@@ -66,6 +102,37 @@ class commandhandler(object):
 
   def is_authorized(self, sender):
     return sender in self.config["authorizedusers"]
+
+  def help(self, sender, arguments):
+    """
+    user: root, auth
+    help
+    will show help for available commands
+    """
+    if self.is_root(sender) or self.is_authorized(sender):
+      if arguments and arguments != "":
+        if arguments.lower() in self.commands:
+          result = list()
+          result.append("Command: %s" % (arguments.lower()))
+          result.append("User: %s" % (self.commands[arguments.lower()]["user"]))
+          result.append("Usage: %s" % (self.commands[arguments.lower()]["usage"]))
+          result.append("Help: %s" % (self.commands[arguments.lower()]["help"]))
+          return "\n".join(result)
+        else:
+          self.error = "no such command: %s" % (arguments)
+          return None
+      else:
+        result = list()
+        for idx, cmd in enumerate(self.commands):
+          result.append("(%d) Command: %s" % (idx+1, cmd))
+          result.append("User: %s" % (self.commands[cmd]["user"]))
+          result.append("Usage: %s" % (self.commands[cmd]["usage"]))
+          result.append("Help: %s" % (self.commands[cmd]["help"]))
+          result.append("---")
+        return "\n".join(result)
+    else:
+      self.error = "user %s is not authorized" % (sender)
+      return None
 
   def add(self, sender, arguments):
     """
@@ -123,7 +190,7 @@ class commandhandler(object):
   def txtrack(self, sender, arguments):
     """
     user: root
-    track start|stop address|name1|hashtag2
+    txtrack start|stop address|name1|hashtag2
     will loop over all addresses and enable|disable tracking live txs for those that match params
     """
     if self.is_root(sender):
@@ -161,7 +228,7 @@ class commandhandler(object):
   def txtweet(self, sender, arguments):
     """
     user: root
-    tweet start|stop address|name1|hashtag2
+    txtweet start|stop address|name1|hashtag2
     will loop over all addresses and enable|disable tweeting live txs for those that match params
     """
     if self.is_root(sender):
@@ -191,6 +258,44 @@ class commandhandler(object):
         import traceback
         traceback.print_exc()
         self.error = "incorrect params for this command: txtweet %s" % (arguments)
+        return None
+    else:
+      self.error = "user %s is not authorized" % (sender)
+      return None
+
+  def txstats(self, sender, arguments):
+    """
+    user: root
+    txstats start|stop address|name1|hashtag2
+    will loop over all addresses and enable|disable stats tweet for those that match params
+    """
+    if self.is_root(sender):
+      try:
+        cmd, pattern = arguments.split()
+        if cmd.lower() in ["start", "stop"]:
+          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags FROM btcaddresses')
+          trkcount = 0
+          for row in rows:
+            if pattern == row[0] or pattern.lower() in row[1].lower() or pattern.lower() in row[2].lower():
+              if cmd.lower() == "start":
+                query = 'UPDATE btcaddresses SET dostats=1 WHERE address="%s"' % (row[0])
+                utils.populate_db(self.conn, query)
+                trkcount += 1
+              else:
+                query = 'UPDATE btcaddresses SET dostats=0 WHERE address="%s"' % (row[0])
+                utils.populate_db(self.conn, query)
+                trkcount += 1
+          if trkcount:
+            return "updated %d rows matching pattern: %s" % (trkcount, pattern)
+          else:
+            self.error = "could not find any rows matching pattern: %s" % (pattern)
+            return None
+        else:
+          self.error = "incorrect subcommand for this command: txstats %s" % (arguments)
+      except:
+        import traceback
+        traceback.print_exc()
+        self.error = "incorrect params for this command: txstats %s" % (arguments)
         return None
     else:
       self.error = "user %s is not authorized" % (sender)
@@ -275,44 +380,6 @@ class commandhandler(object):
       self.error = "user %s is not authorized" % (sender)
       return None
 
-  def txstats(self, sender, arguments):
-    """
-    user: root
-    stats start|stop address|name1|hashtag2
-    will loop over all addresses and enable|disable stats tweet for those that match params
-    """
-    if self.is_root(sender):
-      try:
-        cmd, pattern = arguments.split()
-        if cmd.lower() in ["start", "stop"]:
-          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags FROM btcaddresses')
-          trkcount = 0
-          for row in rows:
-            if pattern == row[0] or pattern.lower() in row[1].lower() or pattern.lower() in row[2].lower():
-              if cmd.lower() == "start":
-                query = 'UPDATE btcaddresses SET dostats=1 WHERE address="%s"' % (row[0])
-                utils.populate_db(self.conn, query)
-                trkcount += 1
-              else:
-                query = 'UPDATE btcaddresses SET dostats=0 WHERE address="%s"' % (row[0])
-                utils.populate_db(self.conn, query)
-                trkcount += 1
-          if trkcount:
-            return "updated %d rows matching pattern: %s" % (trkcount, pattern)
-          else:
-            self.error = "could not find any rows matching pattern: %s" % (pattern)
-            return None
-        else:
-          self.error = "incorrect subcommand for this command: txstats %s" % (arguments)
-      except:
-        import traceback
-        traceback.print_exc()
-        self.error = "incorrect params for this command: txstats %s" % (arguments)
-        return None
-    else:
-      self.error = "user %s is not authorized" % (sender)
-      return None
-
   def show(self, sender, arguments):
     """
     user: root, auth
@@ -325,9 +392,21 @@ class commandhandler(object):
         rows = utils.search_db(self.conn, 'SELECT btc2usd FROM forex ORDER BY fid DESC LIMIT 1')
         self.config["exchangerates"]["btc2usd"] = rows[0][0]
         result, summary, allcount, mtcount, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human = list(), list(), 0, 0, 0, 0, 0, 0, 0, None
-        rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses')
-        for row in rows:
-          if arguments == row[0] or arguments.lower() in row[1].lower() or arguments.lower() in row[2].lower():
+        skipargscheck = False
+        if arguments.lower() == "all":
+          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses')
+          skipargscheck = True
+        elif arguments.lower() == "bad":
+          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses WHERE status=2')
+          skipargscheck = True
+        elif arguments.lower() == "good":
+          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses WHERE status=1')
+          skipargscheck = True
+        elif arguments.lower() == "unknown":
+          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses WHERE status=0')
+          skipargscheck = True
+        if skipargscheck:
+          for row in rows:
             summary.append("Address: %s" % (row[0]))
             summary.append("Names: %s" % (row[1]))
             summary.append("Hashtags: %s" % (row[2]))
@@ -347,12 +426,35 @@ class commandhandler(object):
               sent += row[5]
               balance += row[6]
             summary.append("---")
+        else:
+          rows = utils.search_db(self.conn, 'SELECT address, names, hashtags, txs, rcvd, sent, balance, lasttx_epoch, lasttx_human FROM btcaddresses')
+          for row in rows:
+            if arguments == row[0] or arguments.lower() in row[1].lower() or arguments.lower() in row[2].lower():
+              summary.append("Address: %s" % (row[0]))
+              summary.append("Names: %s" % (row[1]))
+              summary.append("Hashtags: %s" % (row[2]))
+              summary.append("Transactions: %s" % (row[3]))
+              summary.append("Received: %.2f (%.2f USD)" % (row[4], row[4]*self.config["exchangerates"]["btc2usd"]))
+              summary.append("Sent: %.2f (%.2f USD)" % (row[5], row[5]*self.config["exchangerates"]["btc2usd"]))
+              summary.append("Balance: %.2f (%.2f USD)" % (row[6], row[6]*self.config["exchangerates"]["btc2usd"]))
+              summary.append("Last TX: %s" % (row[8]))
+              allcount += 1
+              # count all txs (value should be >= 0, -1 is used as default while populating database initially)
+              if row[3] >= 0:
+                mtcount += 1
+              # use only those addresses that have atleast 1 or more txs
+              if row[3] > 0:
+                txs += row[3]
+                rcvd += row[4]
+                sent += row[5]
+                balance += row[6]
+              summary.append("---")
         summary.append("\n")
         summary.append("Matches: %d" % (mtcount))
         summary.append("Transactions: %d" % (txs))
-        summary.append("Received: %.2f (%.2f USD)" % (rcvd, rcvd*self.config["exchangerates"]["btc2usd"]))
-        summary.append("Sent: %.2f (%.2f USD)" % (sent, sent*self.config["exchangerates"]["btc2usd"]))
-        summary.append("Balance: %.2f (%.2f USD)" % (balance, balance*self.config["exchangerates"]["btc2usd"]))
+        summary.append("Received: %.2f (%.2f USD)" % (rcvd, rcvd*self.config["exchangerates"]["btc2usd"] if rcvd >= 0 else -1))
+        summary.append("Sent: %.2f (%.2f USD)" % (sent, sent*self.config["exchangerates"]["btc2usd"] if sent >= 0 else -1))
+        summary.append("Balance: %.2f (%.2f USD)" % (balance, balance*self.config["exchangerates"]["btc2usd"] if balance >= 0 else -1))
         if mtcount > 0:
           return "\n".join(summary)
         elif allcount > 0:
@@ -371,7 +473,8 @@ class commandhandler(object):
       return None
 
   def send_dm(self, sender, text):
-    self.api.send_direct_message(screen_name=sender, text=text)
+    for chunk in utils.split_twitter_text(text=text, maxchars=1000):
+      self.api.send_direct_message(screen_name=sender, text=chunk)
 
   def parser(self, message):
     if "direct_message" in message:
