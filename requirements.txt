@@ -1,0 +1,6 @@
+requests
+twitter-text-python
+pika
+websockets
+jinja2
+tweepy
