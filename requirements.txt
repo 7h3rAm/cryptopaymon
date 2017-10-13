@@ -1,6 +1,7 @@
 requests
 twitter-text-python
 pika
+websocket
 websockets
 jinja2
 tweepy
