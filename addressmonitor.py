@@ -6,6 +6,7 @@ import ast
 
 from pprint import pprint
 import json
+import sys
 
 import utils
 
@@ -49,6 +50,7 @@ class addressmonitor(object):
 
   def on_close(self, ws):
     utils.info("%s" % (ws.url))
+    sys.exit(1)
 
   def subscribe(self):
     # get address, names from btcaddresses table

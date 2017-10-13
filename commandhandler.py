@@ -123,7 +123,7 @@ class commandhandler(object):
           return None
       else:
         result = list()
-        for idx, cmd in enumerate(self.commands):
+        for idx, cmd in enumerate(sorted(self.commands)):
           result.append("(%d) Command: %s" % (idx+1, cmd))
           result.append("User: %s" % (self.commands[cmd]["user"]))
           result.append("Usage: %s" % (self.commands[cmd]["usage"]))
@@ -491,8 +491,8 @@ class commandhandler(object):
               self.send_dm(sender, self.error)
               utils.info(self.error)
           else:
-            self.send_dm(sender, "failed to parse text: %s" % (dmtext))
-            utils.info("failed to parse text: %s" % (dmtext))
+            self.send_dm(sender, "no such command: %s" % (dmtext))
+            utils.info("no such command: %s" % (dmtext))
         except:
           self.send_dm(sender, "exception while parsing dm: '%s'" % (dmtext))
           utils.info("exception while parsing dm: %s" % (dmtext))

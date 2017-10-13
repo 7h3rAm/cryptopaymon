@@ -19,9 +19,8 @@ class dbupdate(object):
       for row in rows:
         txhash, timestamp_human = row[0], row[1]
         if timestamp_human:
-          print(1, txhash, timestamp_human, 1)
-          #query = 'UPDATE btctransactions SET timestamp_human="%s" WHERE txhash="%s"' % (timestamp_human.replace("(UTC)", "UTC"), txhash)
-          #utils.populate_db(self.conn, query)
+          query = 'UPDATE btctransactions SET timestamp_human="%s" WHERE txhash="%s"' % (timestamp_human.replace("(UTC)", "UTC"), txhash)
+          utils.populate_db(self.conn, query)
 
   def run(self):
     self.update()

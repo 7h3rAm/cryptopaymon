@@ -132,9 +132,7 @@ class populatetxs():
                 outaddrs = "|".join(list(set(list(txinfo["destination"].keys()) + [rows[0][1]])))
               else:
                 outaddrs = "|".join(list(set(txinfo["destination"].keys())))
-                pprint(txinfo)
                 query = 'UPDATE btcaddresses SET inaddresses="%s", outaddresses="%s", lasttx_epoch="%s", lasttx_human="%s" WHERE address="%s"' % (inaddrs, outaddrs, txinfo["timestamp_epoch"], txinfo["timestamp_human"], address)
-                print(1, query, 1)
               utils.populate_db(self.conn, query)
 
           # update btctransactions table

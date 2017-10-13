@@ -29,7 +29,7 @@ class statscollector():
       "exchangerates": {
         "btc2usd": 0
       },
-      "imagesavedelay": 5,
+      "imagesavedelay": 10,
       "heading_bad": "Statistics for Bitcoin Ransom",
       "heading_good": "Statistics for Bitcoin Donations",
     }
@@ -92,23 +92,22 @@ class statscollector():
               "lasttx_human": lasttx_human,
             })
       # add this to html report template
-      env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.config["templatedir"]), **self.config["templateopts"])
-      env.trim_blocks = True
-      env.lsrtip_blocks = True
-      write_file("%s/%s" % (self.config["htmldir"], filename), env.get_template("stats.template.html").render(entries=summary, reporttype=reporttype, heading=heading, timestamp=timestamp))
-      # render html as an image and save to disk
-      webbrowser.open_new("%s/%s" % (self.config["htmldir"], filename))
-      time.sleep(self.config["imagesavedelay"])
-      # read image data, add to tweetmedia queue, delete image file
-      try:
-        with open("%s/stats.png" % (self.config["downloaddir"]), "rb") as fo:
-          imgdata = fo.read()
-        utils.enqueue(queuefile=self.config["tweetmediaqueue"], data=imgdata)
-        utils.info("added image data to queue")
-      except:
-        import traceback
-        traceback.print_exc()
-      utils.remove_file("%s/stats.png" % (self.config["downloaddir"]))
+      #env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.config["templatedir"]), **self.config["templateopts"])
+      #env.trim_blocks = True
+      #env.lsrtip_blocks = True
+      #write_file("%s/%s" % (self.config["htmldir"], filename), env.get_template("stats.template.html").render(entries=summary, reporttype=reporttype, heading=heading, timestamp=timestamp))
+      ## render html as an image and save to disk
+      #webbrowser.open_new("%s/%s" % (self.config["htmldir"], filename))
+      #time.sleep(self.config["imagesavedelay"])
+      ## read image data, add to tweetmedia queue, delete image file
+      #try:
+      #  with open("%s/stats.png" % (self.config["downloaddir"]), "rb") as fo:
+      #    imgdata = fo.read()
+      #  utils.enqueue(queuefile=self.config["tweetmediaqueue"], data=imgdata)
+      #  utils.info("added image data to queue")
+      #except Exception as ex:
+      #  utils.warn(ex)
+      #utils.remove_file("%s/stats.png" % (self.config["downloaddir"]))
 
     timestamp = "%s UTC" % (utils.current_datetime_utc_string())
     rows = utils.search_db(self.conn, 'SELECT names FROM btcaddresses WHERE dostats=1 AND status=1')

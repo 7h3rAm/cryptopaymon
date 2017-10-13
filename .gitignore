@@ -9,6 +9,7 @@
 /*.egg-info
 /*.egg
 
+env/
 misc/
 __pycache__
 cryptopaymon.sqlite
